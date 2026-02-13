@@ -1,4 +1,10 @@
-
+/** 
+ * This file will insert warehouse records according to 
+ * the tables defined in the create_tables.sql file.
+ * 
+ * These addresses are intended to reflect the formatting
+ * for real-world addressing standards in the United States.
+ */
 
 INSERT INTO WAREHOUSES ( LOCATION_NAME, SHIPPING_STREET_1, SHIPPING_CITY, SHIPPING_STATE, SHIPPING_ZIP, BILLING_STREET_1, BILLING_CITY, BILLING_STATE, BILLING_ZIP ) VALUES ( 'Wilkes-Barre_PA_1',
            '600 New Commerce Blvd',

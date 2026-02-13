@@ -14,6 +14,16 @@
 -- DROP TABLE IF EXISTS USERS;
 SET DEFINE OFF;
 
+/** 
+ * Users table definition.
+ * 
+ * Includes a built-in email validation check with support for subdomains.
+ * Example: "my_email@mail.us-east-1.example.org"
+ * 
+ * Useful for situations where a company might want to make an account 
+ * for order automations using some API key authentication; 
+ * this constraint allows the use of transactional/no-reply email addresses.
+ */
 CREATE TABLE IF NOT EXISTS USERS (
     USER_ID NUMBER GENERATED ALWAYS AS IDENTITY,
     FIRST_NAME VARCHAR2(50) NOT NULL,
@@ -29,7 +39,14 @@ CREATE TABLE IF NOT EXISTS USERS (
     CONSTRAINT USER_ID PRIMARY KEY (USER_ID)
 );
 
-
+/** 
+ * User phones table definition.
+ * 
+ * Assigns unique phone numbers to users.
+ * 
+ * Includes validation only for 10-digit phone numbers,
+ * assuming operations only within the United States.
+ */
 CREATE TABLE IF NOT EXISTS USER_PHONES (
     USER_PHONE_ID NUMBER GENERATED ALWAYS AS IDENTITY,
     USER_ID NUMBER REFERENCES USERS(USER_ID) ON DELETE CASCADE NOT NULL,
@@ -43,6 +60,15 @@ CREATE TABLE IF NOT EXISTS USER_PHONES (
     CONSTRAINT USER_PHONE_ID PRIMARY KEY (USER_PHONE_ID)
 );
 
+/** 
+ * Sellers table definition.
+ * 
+ * Some basic information on seller entities, with a place to store 
+ * ratings and sales numbers. 
+ * 
+ * Automations can be made to run background queries to ensure these
+ * are up-to-date. They can be useful insights.
+ */
 CREATE TABLE IF NOT EXISTS SELLERS (
     SELLER_ID NUMBER REFERENCES USERS(USER_ID) ON DELETE CASCADE UNIQUE NOT NULL,
     SELLER_NAME VARCHAR2(100) NOT NULL,
@@ -51,6 +77,16 @@ CREATE TABLE IF NOT EXISTS SELLERS (
     TOTAL_SALES NUMBER DEFAULT 0
 );
 
+/** 
+ * Customers table definition.
+ * 
+ * Includes basic information for customers.
+ * 
+ * Customers are Users first, so their Customer ID is tied to
+ * their User ID. This table stores information about shipping and billing
+ * addresses, with built-in validation for 5-digit postal codes and
+ * 2-character state codes for United States operations.
+ */
 CREATE TABLE IF NOT EXISTS CUSTOMERS (
     CUSTOMER_ID NUMBER REFERENCES USERS(USER_ID) ON DELETE CASCADE UNIQUE NOT NULL,
     BILLING_STREET_1 VARCHAR2(50) NOT NULL,
@@ -69,6 +105,18 @@ CREATE TABLE IF NOT EXISTS CUSTOMERS (
     CONSTRAINT VALID_SHIPPING_STATE CHECK (REGEXP_LIKE(SHIPPING_STATE,'^[A-Z]{2}$'))
 );
 
+/**
+ * Products table definition.
+ * 
+ * Contains a ton of information about Products.
+ * 
+ * Sellers and suppliers are both Seller entities,
+ * which allows for Sellers to act as suppliers
+ * for other Sellers. 
+ * 
+ * Category, rating, name, and description allow
+ * for search and filter operations.
+ */
 CREATE TABLE IF NOT EXISTS PRODUCTS (
     PRODUCT_ID NUMBER GENERATED ALWAYS AS IDENTITY,
     SELLER_ID REFERENCES SELLERS(SELLER_ID) ON DELETE CASCADE NOT NULL,
@@ -84,6 +132,14 @@ CREATE TABLE IF NOT EXISTS PRODUCTS (
     CONSTRAINT PRODUCT_ID PRIMARY KEY (PRODUCT_ID)
 );
 
+
+/**
+ * Orders table definition.
+ * 
+ * Includes billing and shipping addresses, in case they
+ * differ from the Customer's address inputs.
+ * Same validation rules as Customer addresses. 
+ */
 CREATE TABLE IF NOT EXISTS ORDERS (
     ORDER_ID NUMBER GENERATED ALWAYS AS IDENTITY,
     CUSTOMER_ID NUMBER REFERENCES CUSTOMERS(CUSTOMER_ID) NOT NULL,
@@ -108,6 +164,12 @@ CREATE TABLE IF NOT EXISTS ORDERS (
     CONSTRAINT ORDER_ID PRIMARY KEY (ORDER_ID)
 );
 
+/**
+ * Warehouse table definition.
+ * 
+ * Addresses stored here support inventory management operations from
+ * ShopSphere's warehouse locations.
+ */
 CREATE TABLE IF NOT EXISTS WAREHOUSES (
     WAREHOUSE_ID NUMBER GENERATED ALWAYS AS IDENTITY,
     LOCATION_NAME VARCHAR(30) UNIQUE NOT NULL,
@@ -128,7 +190,14 @@ CREATE TABLE IF NOT EXISTS WAREHOUSES (
     CONSTRAINT WAREHOUSE_ID PRIMARY KEY (WAREHOUSE_ID)
 );
 
-
+/**
+ * Warehouse Products table definition.
+ * 
+ * Supports inventory management operations by tying specific 
+ * groups of products to specific warehouses.
+ * 
+ * Restock attributes supports supply chain automations.
+ */
 CREATE TABLE IF NOT EXISTS WAREHOUSE_PRODUCTS (
     WAREHOUSE_PRODUCT_ID NUMBER GENERATED ALWAYS AS IDENTITY,
     WAREHOUSE_ID NUMBER REFERENCES WAREHOUSES(WAREHOUSE_ID) ON DELETE SET NULL NOT NULL,
@@ -141,6 +210,12 @@ CREATE TABLE IF NOT EXISTS WAREHOUSE_PRODUCTS (
     CONSTRAINT WAREHOUSE_PRODUCT_ID PRIMARY KEY (WAREHOUSE_PRODUCT_ID)
 );
 
+/**
+ * Order Products table definition.
+ * 
+ * Supports order and delivery tracking.
+ * Includes built-in tracking number generator function.
+ */
 CREATE TABLE IF NOT EXISTS ORDER_PRODUCTS (
     ORDER_PRODUCT_ID NUMBER GENERATED ALWAYS AS IDENTITY,
     ORDER_ID NUMBER REFERENCES ORDERS(ORDER_ID) ON DELETE SET NULL NOT NULL,
@@ -159,6 +234,14 @@ CREATE TABLE IF NOT EXISTS ORDER_PRODUCTS (
     CONSTRAINT ORDER_PRODUCT_ID PRIMARY KEY (ORDER_PRODUCT_ID)
 );
 
+/**
+ * Transactions table definition.
+ * 
+ * Ties orders together with customers for transaction processing.
+ * Payments processing is assumed to be handled outside the scope
+ * of this solution.
+ * Includes support for refunds, gift cards, and declined transactions.
+ */
 CREATE TABLE IF NOT EXISTS TRANSACTIONS (
     TRANSACTION_ID NUMBER GENERATED ALWAYS AS IDENTITY,
     ORDER_ID NUMBER REFERENCES ORDERS(ORDER_ID) ON DELETE SET NULL NOT NULL,
@@ -176,6 +259,12 @@ CREATE TABLE IF NOT EXISTS TRANSACTIONS (
     CONSTRAINT TRANSACTION_ID PRIMARY KEY (TRANSACTION_ID)
 );
 
+/**
+ * Order Product Returns table definition.
+ * 
+ * Supports returns and refunds, with status options and descriptions for 
+ * descriptions for review by internal QA teams.
+ */
 CREATE TABLE IF NOT EXISTS ORDER_PRODUCT_RETURNS (
     ORDER_PRODUCT_RETURN_ID NUMBER GENERATED ALWAYS AS IDENTITY,
     ORDER_PRODUCT_ID NUMBER REFERENCES ORDER_PRODUCTS(ORDER_PRODUCT_ID) ON DELETE SET NULL NOT NULL,
@@ -189,6 +278,13 @@ CREATE TABLE IF NOT EXISTS ORDER_PRODUCT_RETURNS (
     CONSTRAINT ORDER_PRODUCT_RETURN_ID PRIMARY KEY (ORDER_PRODUCT_RETURN_ID)
 );
 
+/**
+ * Customer Products table definition.
+ * 
+ * Supports customer reviews and ratings for products.
+ * Can be used to programmatically make product recommendations for 
+ * customers based on their preferences and prior purchases.
+ */
 CREATE TABLE IF NOT EXISTS CUSTOMER_PRODUCTS (
     CUSTOMER_PRODUCT_ID NUMBER GENERATED ALWAYS AS IDENTITY,
     CUSTOMER_ID NUMBER REFERENCES CUSTOMERS(CUSTOMER_ID) ON DELETE CASCADE NOT NULL,
@@ -203,6 +299,9 @@ CREATE TABLE IF NOT EXISTS CUSTOMER_PRODUCTS (
     CONSTRAINT CUSTOMER_PRODUCT_ID PRIMARY KEY (CUSTOMER_PRODUCT_ID)
 );
 
+/**
+ * Encrypts customer street address data.
+ */
 ALTER TABLE CUSTOMERS MODIFY (
     SHIPPING_STREET_1 ENCRYPT,
     SHIPPING_STREET_2 ENCRYPT,
@@ -210,6 +309,9 @@ ALTER TABLE CUSTOMERS MODIFY (
     BILLING_STREET_2 ENCRYPT
 );
 
+/**
+ * Encrypts order street address data.
+ */
 ALTER TABLE ORDERS MODIFY (
     SHIPPING_STREET_1 ENCRYPT,
     SHIPPING_STREET_2 ENCRYPT,
@@ -217,12 +319,19 @@ ALTER TABLE ORDERS MODIFY (
     BILLING_STREET_2 ENCRYPT
 );
 
+/**
+ * Encrypts User identity data.
+ * No salt for emails, for use with Oracle TDE.
+ */
 ALTER TABLE USERS MODIFY (
     FIRST_NAME ENCRYPT, 
     LAST_NAME ENCRYPT,
     EMAIL ENCRYPT NO SALT
 );
 
+/**
+ * Encrypts phone data, no salt for use with Oracle TDE.
+ */
 ALTER TABLE USER_PHONES MODIFY ( 
     PHONE ENCRYPT NO SALT
 );
